@@ -7,6 +7,7 @@ class SHA256():
     
     bits512 = ""
     Hs = []
+    K = []
     
     def __init__(self, texto) -> None:
         # Transforma em ASCII
@@ -49,24 +50,24 @@ class SHA256():
         
         i = 0
         while len(W) < 64:
-            print(i)
             w0 = W[i]
             w1 = W[i+1]
             w9 = W[i+9]
             w14 = W[i+14]
             
-            rot1 = self.rotacionar(w1, [7, 18, 3])
-            rot2 = self.rotacionar(w14, [17, 19, 3])
+            rot1 = self.rotacionar_deslocar(w1, [7, 18], [3])
+            rot2 = self.rotacionar_deslocar(w14, [17, 19], [10])
+
             
             new_w1 = ""
             new_w14 = ""
             for j in range(0, 32):
-                if (rot1[0][j] == "1") or (rot1[1][j] == "1") or (rot1[2][j] == "1"):
+                if (rot1[0][j] == "1") ^ (rot1[1][j] == "1") ^ (rot1[2][j] == "1"):
                     new_b1 = "1"
                 else:
                     new_b1 = "0"
                 
-                if (rot2[0][j] == "1") or (rot2[1][j] == "1") or (rot2[2][j] == "1"):
+                if (rot2[0][j] == "1") ^ (rot2[1][j] == "1") ^ (rot2[2][j] == "1"):
                     new_b2 = "1"
                 else:
                     new_b2 = "0"
@@ -74,32 +75,54 @@ class SHA256():
                 new_w1 += new_b1
                 new_w14 += new_b2
             
-            new_w = ""
-            for j in range(0, 32):
-                if (w0[j] == "1") or (new_w1[j] == "1") or (w9[j] == "1") or (new_w14[j] == "1"):
-                    new_b = "1"
-                else:
-                    new_b = "0"
+            new_w = int(w0, 2) + int(new_w1, 2) + int(w9, 2) + int(new_w14, 2)
+            new_w = format(new_w, "08b")
+            
+            if (len(new_w) > 32):
+                new_w = int(new_w, 2) % (2**32)
+                new_w = format(new_w, "08b")
                 
-                new_w += new_b
+            while (len(new_w) < 32):
+                new_w = "0" + new_w
+            
             W.append(new_w)
             i += 1
-        print(W)
+        self._inicializar_k()
+        print(self.K)
+        
         
         
                 
     
-    def rotacionar(self, bits, rotates = []):
-        rots = []
+    def rotacionar_deslocar(self, bits, rotates = [], descolocacoes = []):
+        retorno = []
+        
         for r in rotates:
-            rots.append(bits[len(bits) - r:] + bits[:-r])
+            retorno.append(bits[len(bits) - r:] + bits[:-r])
         
-        return rots
+        for d in descolocacoes:
+            retorno.append("0"*d + bits[:-d])
         
-            
-    
-            
-            
-            
+        return retorno
         
-            
+    def _inicializar_k(self):
+        primos_64 = [
+            2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53,
+            59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131,
+            137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223,
+            227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311
+        ]
+        
+        for p in primos_64:
+            fracionaria = (p ** (1/3)) % 1
+            bits = format(int(fracionaria * (2**32)), "08b")
+            while (len(bits) < 32):
+                bits = "0" + bits
+            self.K.append(bits)
+
+
+if __name__ == "__main__":
+    sha = SHA256("porta")
+    sha.criptografar()
+
+
