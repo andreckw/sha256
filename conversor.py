@@ -1,6 +1,7 @@
 # pip install sympy
 import sympy as sy
 import math as mt
+from bitarray import bitarray
 
 
 class SHA256():
@@ -8,6 +9,7 @@ class SHA256():
     bits512 = ""
     Hs = []
     K = []
+    texto_criptografado = ""
     
     def __init__(self, texto) -> None:
         # Transforma em ASCII
@@ -36,10 +38,15 @@ class SHA256():
     
     
     def _inicializar_registrador(self):
-        num_primos = [2, 3, 5, 7, 11, 13, 17, 19]
+        hexa_primos = ["0x6a09e667", "0xbb67ae85", "0x3c6ef372", "0xa54ff53a", "0x510e527f", "0x9b05688c", "0x1f83d9ab", "0x5be0cd19"]
         
-        for n in num_primos:
-            self.Hs.append("0x"+mt.sqrt(n).hex().split('.')[1][:8])
+        for n in hexa_primos:
+            aux = bin(int(n[2:],16))[2:]
+            while len(aux) < 32:
+                aux = "0" + aux
+            self.Hs.append(aux)
+            
+
     
     
     def criptografar(self):
@@ -88,12 +95,99 @@ class SHA256():
             W.append(new_w)
             i += 1
         self._inicializar_k()
-        print(self.K)
+        self.compressao(W)
+        
+        return self.texto_criptografado
         
         
+    def compressao(self, W):
+        a, b, c, d, e, f, g, h = self.Hs
         
+        for i in range(64):
+            
+            aux = self.rotacionar_deslocar(e, [6,11,25])
+            aux1 = self.rotacionar_deslocar(a, [2,13,22])
+            S1 = ""
+            S0 = ""
+            ch = ""
+            maj = ""
+            for j in range(0, 32):
+
+                if (aux[0][j] == "1") ^ (aux[1][j] == "1") ^ (aux[2][j] == "1"):
+                    S1 += "1"
+                else:
+                    S1 += "0"
+
+                if (aux1[0][j] == "1") ^ (aux1[1][j] == "1") ^ (aux1[2][j] == "1"):
+                    S0 += "1"
+                else:
+                    S0 += "0"
+
+                if (e[j] == "1" and f[j] == "1") ^ ((not e[j] == "1") and g[j] == "1"):
+                    ch += "1"
+                else:
+                    ch += "0"
+
+                if (a[j] == "1" and b[j] == "1") ^ (a[j] == "1" and c[j] == "1") ^ (b[j] == "1" and c[j] == "1"):
+                    maj += "1"
+                else:
+                    maj += "0"
                 
-    
+            t1 = bin(int(h, 2) + int(S1, 2) + int(ch, 2) + int(self.K[i], 2) + int(W[i], 2))[2:]
+            if len(t1) > 32:
+                t1 = int(t1, 2) % (2**32)
+                t1 = bin(t1)[2:]
+            while len(t1) < 32:
+                t1 = "0" + t1
+
+            t2 = bin(int(S0, 2) + int(maj, 2))[2:]
+            if len(t2) > 32:
+                t2 = int(t2, 2) % (2**32)
+                t2 = bin(t2)[2:]
+            while len(t2) < 32:
+                t2 = "0" + t2
+
+
+            h = g
+            g = f
+            f = e
+            e = bin(int(d, 2) + int(t1, 2))[2:]
+            
+            if len(e) > 32:
+                e = int(e, 2) % (2**32)
+                e = bin(e)[2:]
+            while len(e) < 32:
+                e = "0" + e
+
+            d = c
+            c = b
+            b = a
+            a = bin(int(t1, 2) + int(t2, 2))[2:]
+
+            if len(a) > 32:
+                a = int(a, 2) % (2**32)
+                a = bin(a)[2:]
+            while len(a) < 32:
+                a = "0" + a
+
+        self.Hs[0] = self._converter_para_32bits(bin(int(a, 2) + int(self.Hs[0], 2))[2:])
+        self.Hs[1] = self._converter_para_32bits(bin(int(b, 2) + int(self.Hs[1], 2))[2:])
+        self.Hs[2] = self._converter_para_32bits(bin(int(c, 2) + int(self.Hs[2], 2))[2:])
+        self.Hs[3] = self._converter_para_32bits(bin(int(d, 2) + int(self.Hs[3], 2))[2:])
+        self.Hs[4] = self._converter_para_32bits(bin(int(e, 2) + int(self.Hs[4], 2))[2:])
+        self.Hs[5] = self._converter_para_32bits(bin(int(f, 2) + int(self.Hs[5], 2))[2:])
+        self.Hs[6] = self._converter_para_32bits(bin(int(g, 2) + int(self.Hs[6], 2))[2:])
+        self.Hs[7] = self._converter_para_32bits(bin(int(h, 2) + int(self.Hs[7], 2))[2:])
+
+        h_concatenado = "".join(self.Hs)
+
+        self.texto_criptografado = format(int(h_concatenado, 2), "064x")
+                
+        
+        
+        
+               
+                
     def rotacionar_deslocar(self, bits, rotates = [], descolocacoes = []):
         retorno = []
         
@@ -104,6 +198,16 @@ class SHA256():
             retorno.append("0"*d + bits[:-d])
         
         return retorno
+
+    def _converter_para_32bits(self, binarios):
+        if len(binarios) > 32:
+            binarios = int(binarios, 2) % (2**32)
+            binarios = bin(binarios)[2:]
+        
+        while len(binarios) < 32:
+            binarios = "0"+binarios
+        
+        return binarios
         
     def _inicializar_k(self):
         primos_64 = [
@@ -122,7 +226,7 @@ class SHA256():
 
 
 if __name__ == "__main__":
-    sha = SHA256("porta")
-    sha.criptografar()
+    sha = SHA256("teste")
+    print(sha.criptografar())
 
 
