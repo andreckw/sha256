@@ -13,31 +13,30 @@ class SHA256():
     
     def __init__(self, texto) -> None:
         # Transforma em ASCII
-        ascii = bytearray(texto, encoding="utf-8")
+        ascii = self._trasformar_em_ascci(texto)
         
         # Transforma o ASCII em bits
         bits448 = ""
         for a in ascii:
             bits448 += format(a, '08b')
         
-        bits64 = len(bits448)
+        tamanho_mensagem_original = len(bits448)
         
         # Faz o padding de 1 e 0 até o 448
         bits448 += "1"
         
-        while len(bits448) < 448:
+        while len(bits448) % 512 != 448:
             bits448 += "0"
-        
+                
         # Transforma o tamanho em bits
-        bits64 = format(bits64, '08b')
-        while len(bits64) < 64:
-            bits64 = "0" + bits64
+        bits64 = format(tamanho_mensagem_original, '064b')
                 
         self.bits512 = f"{bits448}{bits64}"
         self._inicializar_registrador()
     
     
     def _inicializar_registrador(self):
+        self.Hs = []
         hexa_primos = ["0x6a09e667", "0xbb67ae85", "0x3c6ef372", "0xa54ff53a", "0x510e527f", "0x9b05688c", "0x1f83d9ab", "0x5be0cd19"]
         
         for n in hexa_primos:
@@ -50,52 +49,55 @@ class SHA256():
     
     
     def criptografar(self):
-        W = []
         
-        for i in range(0, 512, 32):
-            W.append(self.bits512[i:(i+32)])
+        for k in range(0, len(self.bits512), 512):
+            W = []
+            chunck = self.bits512[k:k+512]
         
-        i = 0
-        while len(W) < 64:
-            w0 = W[i]
-            w1 = W[i+1]
-            w9 = W[i+9]
-            w14 = W[i+14]
-            
-            rot1 = self.rotacionar_deslocar(w1, [7, 18], [3])
-            rot2 = self.rotacionar_deslocar(w14, [17, 19], [10])
+            for j in range(0, 512, 32):
+                W.append(chunck[j:(j+32)])
+        
+            i = 0
+            while len(W) < 64:
+                w0 = W[i]
+                w1 = W[i+1]
+                w9 = W[i+9]
+                w14 = W[i+14]
+                
+                rot1 = self.rotacionar_deslocar(w1, [7, 18], [3])
+                rot2 = self.rotacionar_deslocar(w14, [17, 19], [10])
 
-            
-            new_w1 = ""
-            new_w14 = ""
-            for j in range(0, 32):
-                if (rot1[0][j] == "1") ^ (rot1[1][j] == "1") ^ (rot1[2][j] == "1"):
-                    new_b1 = "1"
-                else:
-                    new_b1 = "0"
                 
-                if (rot2[0][j] == "1") ^ (rot2[1][j] == "1") ^ (rot2[2][j] == "1"):
-                    new_b2 = "1"
-                else:
-                    new_b2 = "0"
+                new_w1 = ""
+                new_w14 = ""
+                for j in range(0, 32):
+                    if (rot1[0][j] == "1") ^ (rot1[1][j] == "1") ^ (rot1[2][j] == "1"):
+                        new_b1 = "1"
+                    else:
+                        new_b1 = "0"
+                    
+                    if (rot2[0][j] == "1") ^ (rot2[1][j] == "1") ^ (rot2[2][j] == "1"):
+                        new_b2 = "1"
+                    else:
+                        new_b2 = "0"
+                    
+                    new_w1 += new_b1
+                    new_w14 += new_b2
                 
-                new_w1 += new_b1
-                new_w14 += new_b2
-            
-            new_w = int(w0, 2) + int(new_w1, 2) + int(w9, 2) + int(new_w14, 2)
-            new_w = format(new_w, "08b")
-            
-            if (len(new_w) > 32):
-                new_w = int(new_w, 2) % (2**32)
+                new_w = int(w0, 2) + int(new_w1, 2) + int(w9, 2) + int(new_w14, 2)
                 new_w = format(new_w, "08b")
                 
-            while (len(new_w) < 32):
-                new_w = "0" + new_w
-            
-            W.append(new_w)
-            i += 1
-        self._inicializar_k()
-        self.compressao(W)
+                if (len(new_w) > 32):
+                    new_w = int(new_w, 2) % (2**32)
+                    new_w = format(new_w, "08b")
+                    
+                while (len(new_w) < 32):
+                    new_w = "0" + new_w
+                
+                W.append(new_w)
+                i += 1
+            self._inicializar_k()
+            self.compressao(W)
         
         return self.texto_criptografado
         
@@ -223,7 +225,13 @@ class SHA256():
             while (len(bits) < 32):
                 bits = "0" + bits
             self.K.append(bits)
+    
+    
+    def _trasformar_em_ascci(self, texto):
+        if (type(texto) == bytes):
+            return bytearray(texto)
 
+        return bytearray(texto, encoding="utf-8")
 
 if __name__ == "__main__":
     sha = SHA256("teste")
